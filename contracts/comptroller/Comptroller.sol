@@ -42,6 +42,7 @@ contract Comptroller is
 
     /// @notice Emitted when liquidation incentive is changed by admin
     event NewLiquidationIncentive(
+        address mToken,
         uint256 oldLiquidationIncentiveMantissa,
         uint256 newLiquidationIncentiveMantissa
     );
@@ -92,8 +93,12 @@ contract Comptroller is
     // /// @notice Emitted when REWARD is granted by admin
     // event RewardGranted(address recipient, uint256 amount);
 
-    /// @notice Emitted when new borrow limit is set by admin
-    event NewBorrowLimit(uint256 oldValue, uint256 newValue);
+    /// @notice Emitted when new liquidation threshold is set by admin
+    event NewLiquidationThreshold(
+        address mToken,
+        uint256 oldValue,
+        uint256 newValue
+    );
 
     /// @notice The initial REWARD index for a market
     uint224 public constant rewardInitialIndex = 1e36;
@@ -781,6 +786,8 @@ contract Comptroller is
     struct AccountLiquidityLocalVars {
         uint256 sumCollateral;
         uint256 sumBorrowPlusEffects;
+        uint256 sumLiquidationThreshold;
+        uint256 sumLiquidationBorrowEffect;
         uint256 mTokenBalance;
         uint256 borrowBalance;
         uint256 exchangeRateMantissa;
@@ -789,7 +796,9 @@ contract Comptroller is
         Exp collateralFactor;
         Exp exchangeRate;
         Exp oraclePrice;
+        Exp liquidationThreshold;
         Exp tokensToDenom;
+        Exp liquidationDenom;
     }
 
     /**
@@ -929,6 +938,9 @@ contract Comptroller is
                 mantissa: markets[address(asset)].collateralFactorMantissa
             });
             vars.exchangeRate = Exp({mantissa: vars.exchangeRateMantissa});
+            vars.liquidationThreshold = Exp({
+                mantissa: liquidationThreshold[address(asset)]
+            });
 
             // Get the normalized price of the asset
             vars.oraclePriceMantissa = oracle.getUnderlyingPrice(asset);
@@ -950,11 +962,31 @@ contract Comptroller is
                 vars.sumCollateral
             );
 
+            // multiplier from tokens to liquidation threshold (in wei)
+            vars.liquidationDenom = mul_(
+                mul_(vars.liquidationThreshold, vars.exchangeRate),
+                vars.oraclePrice
+            );
+            
+            // liquidationTrheshold += liquidationDenom * mTokenBalance
+            vars.sumLiquidationThreshold = mul_ScalarTruncateAddUInt(
+                vars.liquidationDenom,
+                vars.mTokenBalance,
+                vars.sumLiquidationThreshold
+            );
+
             // sumBorrowPlusEffects += oraclePrice * borrowBalance
             vars.sumBorrowPlusEffects = mul_ScalarTruncateAddUInt(
                 vars.oraclePrice,
                 vars.borrowBalance,
                 vars.sumBorrowPlusEffects
+            );
+
+            // sumLiquidationBorrowEffect += oraclePrice * borrowBalance
+            vars.sumLiquidationBorrowEffect = mul_ScalarTruncateAddUInt(
+                vars.oraclePrice,
+                vars.borrowBalance,
+                vars.sumLiquidationBorrowEffect
             );
 
             // Calculate effects of interacting with mTokenModify
@@ -967,6 +999,12 @@ contract Comptroller is
                     vars.sumBorrowPlusEffects
                 );
 
+                vars.sumLiquidationBorrowEffect = mul_ScalarTruncateAddUInt(
+                    vars.liquidationDenom,
+                    redeemTokens,
+                    vars.sumLiquidationBorrowEffect
+                );
+
                 // borrow effect
                 // sumBorrowPlusEffects += oraclePrice * borrowAmount
                 vars.sumBorrowPlusEffects = mul_ScalarTruncateAddUInt(
@@ -974,23 +1012,25 @@ contract Comptroller is
                     borrowAmount,
                     vars.sumBorrowPlusEffects
                 );
+
+                vars.sumLiquidationBorrowEffect = mul_ScalarTruncateAddUInt(
+                    vars.oraclePrice,
+                    borrowAmount,
+                    vars.sumLiquidationBorrowEffect
+                );
             }
         }
 
-        vars.borrowLimit = mul_ScalarTruncate(
-            Exp({mantissa: borrowLimitMantissa}),
-            vars.sumCollateral
-        );
-
-        uint256 liquidationShortfall = vars.sumCollateral > vars.sumBorrowPlusEffects
+        uint256 liquidationShortfall = vars.sumLiquidationThreshold >
+            vars.sumLiquidationBorrowEffect
             ? 0
-            : vars.sumCollateral - vars.sumBorrowPlusEffects;
+            : vars.sumLiquidationBorrowEffect - vars.sumLiquidationThreshold;
 
         // These are safe, as the underflow condition is checked first
-        if (vars.borrowLimit > vars.sumBorrowPlusEffects) {
+        if (vars.sumCollateral > vars.sumBorrowPlusEffects) {
             return (
                 Error.NO_ERROR,
-                vars.borrowLimit - vars.sumBorrowPlusEffects,
+                vars.sumCollateral - vars.sumBorrowPlusEffects,
                 0,
                 liquidationShortfall
             );
@@ -998,7 +1038,7 @@ contract Comptroller is
             return (
                 Error.NO_ERROR,
                 0,
-                vars.sumBorrowPlusEffects - vars.borrowLimit,
+                vars.sumBorrowPlusEffects - vars.sumCollateral,
                 liquidationShortfall
             );
         }
@@ -1041,6 +1081,7 @@ contract Comptroller is
         Exp memory denominator;
         Exp memory ratio;
 
+        uint256 liquidationIncentiveMantissa = liquidationIncentive[address(mTokenCollateral)];
         numerator = mul_(
             Exp({mantissa: liquidationIncentiveMantissa}),
             Exp({mantissa: priceBorrowedMantissa})
@@ -1167,6 +1208,20 @@ contract Comptroller is
                 );
         }
 
+        // liquidation threshold always higher than collateral factor
+        uint256 currentLiquidationThreshold = liquidationThreshold[
+            address(mToken)
+        ];
+        if (currentLiquidationThreshold < newCollateralFactorMantissa) {
+            liquidationThreshold[address(mToken)] = newCollateralFactorMantissa;
+
+            emit NewLiquidationThreshold(
+                address(mToken),
+                currentLiquidationThreshold,
+                newCollateralFactorMantissa
+            );
+        }
+
         // Set market's collateral factor to new collateral factor, remember old value
         uint256 oldCollateralFactorMantissa = market.collateralFactorMantissa;
         market.collateralFactorMantissa = newCollateralFactorMantissa;
@@ -1184,10 +1239,11 @@ contract Comptroller is
     /**
      * @notice Sets liquidationIncentive
      * @dev Admin function to set liquidationIncentive
+     * @param mToken Address of market where incentive to be set
      * @param newLiquidationIncentiveMantissa New liquidationIncentive scaled by 1e18
      * @return uint 0=success, otherwise a failure. (See ErrorReporter for details)
      */
-    function _setLiquidationIncentive(uint256 newLiquidationIncentiveMantissa)
+    function _setLiquidationIncentive(address mToken, uint256 newLiquidationIncentiveMantissa)
         external
         returns (uint256)
     {
@@ -1199,15 +1255,17 @@ contract Comptroller is
                     FailureInfo.SET_LIQUIDATION_INCENTIVE_OWNER_CHECK
                 );
         }
+        
 
         // Save current value for use in log
-        uint256 oldLiquidationIncentiveMantissa = liquidationIncentiveMantissa;
+        uint256 oldLiquidationIncentiveMantissa = liquidationIncentive[mToken];
 
         // Set liquidation incentive to new incentive
-        liquidationIncentiveMantissa = newLiquidationIncentiveMantissa;
+        liquidationIncentive[mToken] = newLiquidationIncentiveMantissa;
 
         // Emit event with old incentive, new incentive
         emit NewLiquidationIncentive(
+            mToken,
             oldLiquidationIncentiveMantissa,
             newLiquidationIncentiveMantissa
         );
@@ -1725,22 +1783,40 @@ contract Comptroller is
         return 0x6d903f6003cca6255D85CcA4D3B5E5146dC33925;
     }
 
-    function _setBorrowLimit(uint256 _borrowLimit) public returns (uint256) {
+    function _setLiquidationThreshold(
+        address mToken,
+        uint256 _liquidationThreshold
+    ) public returns (uint256) {
         if (msg.sender != admin) {
             return
                 fail(
                     Error.UNAUTHORIZED,
-                    FailureInfo.SET_BORROW_LIMIT_ADMIN_CHECK
+                    FailureInfo.SET_LIQUIDATION_THRESHOLD_OWNER_CHECK
                 );
         }
 
-        if (_borrowLimit > 1e18) {
+        if (!markets[mToken].isListed) {
             return
-                fail(Error.BAD_INPUT, FailureInfo.INVALID_BORROW_LIMIT_VALUE);
+                fail(
+                    Error.MARKET_NOT_LISTED,
+                    FailureInfo.SET_LIQUIDATION_THRESHOLD_VALIDATION
+                );
         }
-        uint256 oldLimit = borrowLimitMantissa;
-        borrowLimitMantissa = _borrowLimit;
 
-        emit NewBorrowLimit(oldLimit, borrowLimitMantissa);
+        if (
+            _liquidationThreshold > 1e18 ||
+            _liquidationThreshold < markets[mToken].collateralFactorMantissa
+        ) {
+            return
+                fail(
+                    Error.BAD_INPUT,
+                    FailureInfo.SET_LIQUIDATION_THRESHOLD_VALIDATION
+                );
+        }
+
+        uint256 oldValue = liquidationThreshold[mToken];
+        liquidationThreshold[mToken] = _liquidationThreshold;
+
+        emit NewLiquidationThreshold(mToken, oldValue, _liquidationThreshold);
     }
 }

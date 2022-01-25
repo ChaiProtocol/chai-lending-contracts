@@ -39,11 +39,6 @@ contract ComptrollerStorage is DelegateComptrollerAdminStorage {
     uint public closeFactorMantissa;
 
     /**
-     * @notice Multiplier representing the discount on collateral that a liquidator receives
-     */
-    uint public liquidationIncentiveMantissa;
-
-    /**
      * @notice Max number of assets a single account can participate in (borrow or use as collateral)
      */
     uint public maxAssets;
@@ -98,6 +93,9 @@ contract ComptrollerStorage is DelegateComptrollerAdminStorage {
     /// @notice Borrow caps enforced by borrowAllowed for each mToken address. Defaults to zero which corresponds to unlimited borrowing.
     mapping(address => uint) public borrowCaps;
 
-    /// @notice multiplier to calculate the maximum value an account can borrow
-    uint256 public borrowLimitMantissa;
+    /// @notice multiplier to calculate the maximum value an account can borrow for each market
+    mapping(address => uint) public liquidationThreshold;
+
+    /// @notice Multiplier representing the discount on collateral that a liquidator receives for each market
+    mapping(address => uint) public liquidationIncentive;
 }
