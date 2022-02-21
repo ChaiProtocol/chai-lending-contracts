@@ -1295,12 +1295,8 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
             );
         }
 
-        /* If repayAmount == -1, repayAmount = accountBorrows */
-        if (repayAmount == uint256(-1)) {
-            vars.repayAmount = vars.accountBorrows;
-        } else {
-            vars.repayAmount = repayAmount;
-        }
+        /* max repayAmount set to accountBorrows */
+        vars.repayAmount = repayAmount > vars.accountBorrows ? vars.accountBorrows : repayAmount;
 
         /////////////////////////
         // EFFECTS & INTERACTIONS
