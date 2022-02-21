@@ -1,191 +1,266 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 
 pragma solidity >=0.8.0;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "../interfaces/IFund.sol";
+import "../interfaces/IMultiFeeDistribution.sol";
 
-// MojitoChef is fork of Sushi's MasterChef v1.
-//
-// Note that it's ownable and the owner wields tremendous power. The ownership
-// will be transferred to a governance smart contract once MOJI is sufficiently
-// distributed and the community can show to govern itself.
-//
-// Have fun reading it. Hopefully it's bug-free. God bless.
-contract MojitoChef is Ownable {
-    using SafeMath for uint256;
+/*  MojitoChef is a fork from Sushi's MiniChef v2 */
+contract MojitoChef is Ownable, Initializable {
     using SafeERC20 for IERC20;
-    // Info of each user.
+
     struct UserInfo {
-        uint256 amount; // How many LP tokens the user has provided.
-        uint256 rewardDebt; // Reward debt. See explanation below.
+        uint256 amount;
+        int256 rewardDebt;
     }
-    // Info of each pool.
+
     struct PoolInfo {
-        IERC20 lpToken; // Address of LP token contract.
-        uint256 allocPoint; // How many allocation points assigned to this pool. MOJIs to distribute per block.
-        uint256 lastRewardBlock; // Last block number that MOJIs distribution occurs.
-        uint256 accRewardPerShare; // Accumulated MOJIs per share, times 1e12. See below.
+        uint256 accRewardPerShare;
+        uint256 lastRewardTime;
+        uint256 allocPoint;
     }
-    // The reward TOKEN!
-    IERC20 public rewardToken;
-    // reward tokens created per block.
-    uint256 public rewardPerBlock;
-    uint256 public BONUS_MULTIPLIER = 1;
-    address public fund;
-    // Info of each pool.
+
+    IMultiFeeDistribution public rewardMinter;
+
+    /// @notice Info of each MCV2 pool.
     PoolInfo[] public poolInfo;
-    // Info of each user that stakes LP tokens.
+    /// @notice Address of the LP token for each MCV2 pool.
+    IERC20[] public lpToken;
+
+    /// @notice Info of each user that stakes LP tokens.
     mapping(uint256 => mapping(address => UserInfo)) public userInfo;
-    // Total allocation poitns. Must be the sum of all allocation points in all pools.
+    /// @dev Total allocation points. Must be the sum of all allocation points in all pools.
     uint256 public totalAllocPoint = 0;
-    // The block number when reward mining starts.
-    uint256 public startBlock;
-    event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
-    event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
-    event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
 
-    constructor(
-        IERC20 _rewardToken,
-        address _fund,
-        uint256 _rewardPerBlock,
-        uint256 _startBlock
-    ) {
-        rewardToken = _rewardToken;
-        rewardPerBlock = _rewardPerBlock;
-        startBlock = _startBlock;
-        fund = _fund;
-    }
-    
-    function poolLength() external view returns (uint256) {
-        return poolInfo.length;
+    uint256 public rewardPerSecond;
+    uint256 private constant ACC_REWARD_PRECISION = 1e12;
+
+    function initialize(IMultiFeeDistribution _rewardMinter) external initializer onlyOwner {
+        rewardMinter = _rewardMinter;
     }
 
-    // Add a new lp to the pool. Can only be called by the owner.
-    // XXX DO NOT add the same LP token more than once. Rewards will be messed up if you do.
-    function add(
-        uint256 _allocPoint,
-        IERC20 _lpToken,
-        bool _withUpdate
-    ) public onlyOwner {
-        if (_withUpdate) {
-            massUpdatePools();
-        }
-        uint256 lastRewardBlock = block.number > startBlock ? block.number : startBlock;
-        totalAllocPoint = totalAllocPoint.add(_allocPoint);
-        poolInfo.push(PoolInfo({lpToken: _lpToken, allocPoint: _allocPoint, lastRewardBlock: lastRewardBlock, accRewardPerShare: 0}));
+    /* ========== PUBLIC FUNCTIONS ========== */
+
+    /// @notice Returns the number of MCV2 pools.
+    function poolLength() public view returns (uint256 pools) {
+        pools = poolInfo.length;
     }
 
-    // Update the given pool's reward allocation point. Can only be called by the owner.
-    function set(
-        uint256 _pid,
-        uint256 _allocPoint,
-        bool _withUpdate
-    ) public onlyOwner {
-        if (_withUpdate) {
-            massUpdatePools();
-        }
-        totalAllocPoint = totalAllocPoint.sub(poolInfo[_pid].allocPoint).add(_allocPoint);
-        poolInfo[_pid].allocPoint = _allocPoint;
-    }
-
-    function setfund(address _fund) external onlyOwner {
-        require(_fund != address(0), "Invalid zero address");
-        fund = _fund;
-    }
-
-    // View function to see pending reward tokens on frontend.
-    function pendingReward(uint256 _pid, address _user) external view returns (uint256) {
-        PoolInfo storage pool = poolInfo[_pid];
+    /// @notice View function to see pending reward on frontend.
+    /// @param _pid The index of the pool. See `poolInfo`.
+    /// @param _user Address of user.
+    /// @return pending reward for a given user.
+    function pendingReward(uint256 _pid, address _user) external view returns (uint256 pending) {
+        PoolInfo memory pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_user];
         uint256 accRewardPerShare = pool.accRewardPerShare;
-        uint256 lpSupply = pool.lpToken.balanceOf(address(this));
-        if (block.number > pool.lastRewardBlock && lpSupply != 0) {
-            uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
-            uint256 addedReward = multiplier.mul(rewardPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
-            accRewardPerShare = accRewardPerShare.add(addedReward.mul(1e12).div(lpSupply));
+        uint256 lpSupply = lpToken[_pid].balanceOf(address(this));
+        if (block.timestamp > pool.lastRewardTime && lpSupply != 0) {
+            uint256 time = block.timestamp - pool.lastRewardTime;
+            uint256 rewardAmount = (time * rewardPerSecond * pool.allocPoint) / totalAllocPoint;
+            accRewardPerShare += (rewardAmount * ACC_REWARD_PRECISION) / lpSupply;
         }
-        return user.amount.mul(accRewardPerShare).div(1e12).sub(user.rewardDebt);
+        pending = uint256(int256((user.amount * accRewardPerShare) / ACC_REWARD_PRECISION) - user.rewardDebt);
     }
 
-    function getMultiplier(uint256 _from, uint256 _to) public view returns (uint256) {
-        return _to.sub(_from).mul(BONUS_MULTIPLIER);
-    }
-
-    // Update reward vairables for all pools. Be careful of gas spending!
-    function massUpdatePools() public {
-        uint256 length = poolInfo.length;
-        for (uint256 pid = 0; pid < length; ++pid) {
-            updatePool(pid);
+    /// @notice Update reward variables of the given pool.
+    /// @param pid The index of the pool. See `poolInfo`.
+    /// @return pool Returns the pool that was updated.
+    function updatePool(uint256 pid) public returns (PoolInfo memory pool) {
+        pool = poolInfo[pid];
+        if (block.timestamp > pool.lastRewardTime) {
+            uint256 lpSupply = lpToken[pid].balanceOf(address(this));
+            if (lpSupply > 0) {
+                uint256 time = block.timestamp - pool.lastRewardTime;
+                uint256 rewardAmount = (time * rewardPerSecond * pool.allocPoint) / totalAllocPoint;
+                pool.accRewardPerShare += (rewardAmount * ACC_REWARD_PRECISION) / lpSupply;
+            }
+            pool.lastRewardTime = block.timestamp;
+            poolInfo[pid] = pool;
+            emit LogUpdatePool(pid, pool.lastRewardTime, lpSupply, pool.accRewardPerShare);
         }
     }
 
-    // Update reward variables of the given pool to be up-to-date.
-    function updatePool(uint256 _pid) public {
-        PoolInfo storage pool = poolInfo[_pid];
-        if (block.number <= pool.lastRewardBlock) {
-            return;
+    /// @notice Update reward variables for all pools. Be careful of gas spending!
+    /// @param pids Pool IDs of all to be updated. Make sure to update all active pools.
+    function massUpdatePools(uint256[] calldata pids) external {
+        uint256 len = pids.length;
+        for (uint256 i = 0; i < len; ++i) {
+            updatePool(pids[i]);
         }
-        uint256 lpSupply = pool.lpToken.balanceOf(address(this));
-        if (lpSupply == 0) {
-            pool.lastRewardBlock = block.number;
-            return;
-        }
-        uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
-        uint256 reward = multiplier.mul(rewardPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
-        pool.accRewardPerShare = pool.accRewardPerShare.add(reward.mul(1e12).div(lpSupply));
-        pool.lastRewardBlock = block.number;
     }
 
-    // Deposit LP tokens to MasterChef for reward token allocation.
-    function deposit(uint256 _pid, uint256 _amount) public {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][msg.sender];
-        updatePool(_pid);
-        if (user.amount > 0) {
-            uint256 pending = user.amount.mul(pool.accRewardPerShare).div(1e12).sub(user.rewardDebt);
-            safeRewardTransfer(msg.sender, pending);
+    /// @notice Deposit LP tokens to MCV2 for reward allocation.
+    /// @param pid The index of the pool. See `poolInfo`.
+    /// @param amount LP token amount to deposit.
+    /// @param to The receiver of `amount` deposit benefit.
+    function deposit(
+        uint256 pid,
+        uint256 amount,
+        address to
+    ) public {
+        PoolInfo memory pool = updatePool(pid);
+        UserInfo storage user = userInfo[pid][to];
+
+        // Effects
+        user.amount += amount;
+        user.rewardDebt += int256((amount * pool.accRewardPerShare) / ACC_REWARD_PRECISION);
+
+        lpToken[pid].safeTransferFrom(msg.sender, address(this), amount);
+
+        emit Deposit(msg.sender, pid, amount, to);
+    }
+
+    /// @notice Withdraw LP tokens from MCV2.
+    /// @param pid The index of the pool. See `poolInfo`.
+    /// @param amount LP token amount to withdraw.
+    /// @param to Receiver of the LP tokens.
+    function withdraw(
+        uint256 pid,
+        uint256 amount,
+        address to
+    ) public {
+        PoolInfo memory pool = updatePool(pid);
+        UserInfo storage user = userInfo[pid][msg.sender];
+
+        user.rewardDebt -= int256((amount * pool.accRewardPerShare) / ACC_REWARD_PRECISION);
+        user.amount -= amount;
+
+        lpToken[pid].safeTransfer(to, amount);
+
+        emit Withdraw(msg.sender, pid, amount, to);
+    }
+
+    /// @notice Harvest proceeds for transaction sender to `to`.
+    /// @param pid The index of the pool. See `poolInfo`.
+    /// @param to Receiver of rewards.
+    function harvest(uint256 pid, address to) public {
+        PoolInfo memory pool = updatePool(pid);
+        UserInfo storage user = userInfo[pid][msg.sender];
+        int256 accumulatedReward = int256((user.amount * pool.accRewardPerShare) / ACC_REWARD_PRECISION);
+        uint256 _pendingReward = uint256(accumulatedReward - user.rewardDebt);
+
+        // Effects
+        user.rewardDebt = accumulatedReward;
+
+        // Interactions
+        if (_pendingReward != 0) {
+            rewardMinter.mint(to, _pendingReward);
         }
-        pool.lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
-        user.amount = user.amount.add(_amount);
-        user.rewardDebt = user.amount.mul(pool.accRewardPerShare).div(1e12);
-        emit Deposit(msg.sender, _pid, _amount);
+
+        emit Harvest(msg.sender, pid, _pendingReward);
     }
 
-    // Withdraw LP tokens from MasterChef.
-    function withdraw(uint256 _pid, uint256 _amount) public {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][msg.sender];
-        require(user.amount >= _amount, "withdraw: not good");
-        updatePool(_pid);
-        uint256 pending = user.amount.mul(pool.accRewardPerShare).div(1e12).sub(user.rewardDebt);
-        safeRewardTransfer(msg.sender, pending);
-        user.amount = user.amount.sub(_amount);
-        user.rewardDebt = user.amount.mul(pool.accRewardPerShare).div(1e12);
-        pool.lpToken.safeTransfer(address(msg.sender), _amount);
-        emit Withdraw(msg.sender, _pid, _amount);
+    /// @notice Withdraw LP tokens from MCV2 and harvest proceeds for transaction sender to `to`.
+    /// @param pid The index of the pool. See `poolInfo`.
+    /// @param amount LP token amount to withdraw.
+    /// @param to Receiver of the LP tokens and rewards.
+    function withdrawAndHarvest(
+        uint256 pid,
+        uint256 amount,
+        address to
+    ) public {
+        PoolInfo memory pool = updatePool(pid);
+        UserInfo storage user = userInfo[pid][msg.sender];
+        int256 accumulatedReward = int256((user.amount * pool.accRewardPerShare) / ACC_REWARD_PRECISION);
+        uint256 _pendingReward = uint256(accumulatedReward - user.rewardDebt);
+
+        // Effects
+        user.rewardDebt = accumulatedReward - int256((amount * pool.accRewardPerShare) / ACC_REWARD_PRECISION);
+        user.amount -= amount;
+
+        // Interactions
+        if (_pendingReward != 0) {
+            rewardMinter.mint(to, _pendingReward);
+        }
+
+        lpToken[pid].safeTransfer(to, amount);
+
+        emit Withdraw(msg.sender, pid, amount, to);
+        emit Harvest(msg.sender, pid, _pendingReward);
     }
 
-    // Withdraw without caring about rewards. EMERGENCY ONLY.
-    function emergencyWithdraw(uint256 _pid) public {
-        PoolInfo storage pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][msg.sender];
-        pool.lpToken.safeTransfer(address(msg.sender), user.amount);
-        emit EmergencyWithdraw(msg.sender, _pid, user.amount);
+    /// @notice Withdraw without caring about rewards. EMERGENCY ONLY.
+    /// @param pid The index of the pool. See `poolInfo`.
+    /// @param to Receiver of the LP tokens.
+    function emergencyWithdraw(uint256 pid, address to) public {
+        UserInfo storage user = userInfo[pid][msg.sender];
+        uint256 amount = user.amount;
         user.amount = 0;
         user.rewardDebt = 0;
+
+        // Note: transfer can fail or succeed if `amount` is zero.
+        lpToken[pid].safeTransfer(to, amount);
+        emit EmergencyWithdraw(msg.sender, pid, amount, to);
     }
 
-    // Safe rewward token transfer function, just in case if rounding error causes pool to not have enough reward tokens.
-    function safeRewardTransfer(address _to, uint256 _amount) internal {
-        IFund(fund).transferTo(address(rewardToken), _to, _amount);
+    function harvestAllRewards(address to) external {
+        uint256 length = poolInfo.length;
+        for (uint256 pid = 0; pid < length; ++pid) {
+            if (userInfo[pid][msg.sender].amount > 0) {
+                harvest(pid, to);
+            }
+        }
     }
 
-    function setRewardPerBlock(uint256 _rewardPerBlock) external onlyOwner {
-        massUpdatePools();
-        rewardPerBlock = _rewardPerBlock;
+    /* ========== INTERNAL FUNCTIONS ========== */
+
+    function checkPoolDuplicate(IERC20 _lpToken) internal view {
+        uint256 length = poolInfo.length;
+        for (uint256 pid = 0; pid < length; ++pid) {
+            require(lpToken[pid] != _lpToken, "add: existing pool?");
+        }
     }
+
+    /* ========== RESTRICTED FUNCTIONS ========== */
+
+    /// @notice Add a new LP to the pool. Can only be called by the owner.
+    /// DO NOT add the same LP token more than once. Rewards will be messed up if you do.
+    /// @param allocPoint AP of the new pool.
+    /// @param _lpToken Address of the LP ERC-20 token.
+    function add(
+        uint256 allocPoint,
+        IERC20 _lpToken
+    ) public onlyOwner {
+        checkPoolDuplicate(_lpToken);
+
+        totalAllocPoint += allocPoint;
+        lpToken.push(_lpToken);
+
+        poolInfo.push(PoolInfo({allocPoint: allocPoint, lastRewardTime: block.timestamp, accRewardPerShare: 0}));
+        emit LogPoolAddition(lpToken.length - 1, allocPoint, _lpToken);
+    }
+
+    /// @notice Update the given pool's reward allocation point and `IRewarder` contract. Can only be called by the owner.
+    /// @param _pid The index of the pool. See `poolInfo`.
+    /// @param _allocPoint New AP of the pool.
+    function set(
+        uint256 _pid,
+        uint256 _allocPoint
+    ) public onlyOwner {
+        totalAllocPoint = totalAllocPoint - poolInfo[_pid].allocPoint + _allocPoint;
+        poolInfo[_pid].allocPoint = _allocPoint;
+        emit LogSetPool(_pid, _allocPoint);
+    }
+
+    /// @notice Sets the reward per second to be distributed. Can only be called by the owner.
+    /// @param _rewardPerSecond The amount of reward to be distributed per second.
+    function setRewardPerSecond(uint256 _rewardPerSecond) public onlyOwner {
+        rewardPerSecond = _rewardPerSecond;
+        emit LogRewardPerSecond(_rewardPerSecond);
+    }
+
+    /* =============== EVENTS ==================== */
+
+    event Deposit(address indexed user, uint256 indexed pid, uint256 amount, address indexed to);
+    event Withdraw(address indexed user, uint256 indexed pid, uint256 amount, address indexed to);
+    event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount, address indexed to);
+    event Harvest(address indexed user, uint256 indexed pid, uint256 amount);
+    event LogPoolAddition(uint256 indexed pid, uint256 allocPoint, IERC20 indexed lpToken);
+    event LogSetPool(uint256 indexed pid, uint256 allocPoint);
+    event LogUpdatePool(uint256 indexed pid, uint256 lastRewardTime, uint256 lpSupply, uint256 accRewardPerShare);
+    event LogRewardPerSecond(uint256 rewardPerSecond);
 }

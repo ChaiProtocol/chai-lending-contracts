@@ -1487,10 +1487,7 @@ contract Comptroller is
             Market storage market = markets[address(mToken)];
             require(market.isListed == true, "market is not listed");
 
-            if (
-                rewardSupplyState[address(mToken)].index == 0 &&
-                rewardSupplyState[address(mToken)].block == 0
-            ) {
+            if (rewardSupplyState[address(mToken)].index == 0) {
                 rewardSupplyState[address(mToken)] = RewardMarketState({
                     index: rewardInitialIndex,
                     block: safe32(
@@ -1500,10 +1497,7 @@ contract Comptroller is
                 });
             }
 
-            if (
-                rewardBorrowState[address(mToken)].index == 0 &&
-                rewardBorrowState[address(mToken)].block == 0
-            ) {
+            if (rewardBorrowState[address(mToken)].index == 0) {
                 rewardBorrowState[address(mToken)] = RewardMarketState({
                     index: rewardInitialIndex,
                     block: safe32(
