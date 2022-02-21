@@ -87,12 +87,10 @@ contract MojitoChef is Ownable, Initializable {
         }
     }
 
-    /// @notice Update reward variables for all pools. Be careful of gas spending!
-    /// @param pids Pool IDs of all to be updated. Make sure to update all active pools.
-    function massUpdatePools(uint256[] calldata pids) external {
-        uint256 len = pids.length;
+    function massUpdatePools() public {
+        uint256 len = poolInfo.length;
         for (uint256 i = 0; i < len; ++i) {
-            updatePool(pids[i]);
+            updatePool(i);
         }
     }
 
@@ -248,6 +246,7 @@ contract MojitoChef is Ownable, Initializable {
         IRewarder _rewarder
     ) public onlyOwner {
         checkPoolDuplicate(_lpToken);
+        massUpdatePools();
 
         totalAllocPoint += allocPoint;
         lpToken.push(_lpToken);
@@ -268,6 +267,7 @@ contract MojitoChef is Ownable, Initializable {
         IRewarder _rewarder,
         bool overwrite
     ) public onlyOwner {
+        massUpdatePools();
         totalAllocPoint = totalAllocPoint - poolInfo[_pid].allocPoint + _allocPoint;
         poolInfo[_pid].allocPoint = _allocPoint;
         if (overwrite) {
@@ -280,6 +280,7 @@ contract MojitoChef is Ownable, Initializable {
     /// @notice Sets the reward per second to be distributed. Can only be called by the owner.
     /// @param _rewardPerSecond The amount of reward to be distributed per second.
     function setRewardPerSecond(uint256 _rewardPerSecond) public onlyOwner {
+        massUpdatePools();
         rewardPerSecond = _rewardPerSecond;
         emit LogRewardPerSecond(_rewardPerSecond);
     }
