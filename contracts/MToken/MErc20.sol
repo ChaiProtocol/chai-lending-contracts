@@ -191,7 +191,7 @@ contract MErc20 is MToken, MErc20Interface {
         safeTransfer(token, to, amount);
     }
 
-    function safeTransfer(EIP20NonStandardInterface token, address to, uint amount) {
+    function safeTransfer(EIP20NonStandardInterface token, address to, uint amount) internal {
         token.transfer(to, amount);
 
         bool success;
