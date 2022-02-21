@@ -780,7 +780,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
 
         /* We emit a Mint event, and a Transfer event */
         emit Mint(minter, vars.actualMintAmount, vars.mintTokens);
-        emit Transfer(address(this), minter, vars.mintTokens);
+        emit Transfer(address(0), minter, vars.mintTokens);
 
         /* We call the defense hook */
         // unused function

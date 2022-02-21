@@ -5,6 +5,7 @@ import "../common/ErrorReporter.sol";
 import "../interfaces/PriceOracle.sol";
 import "../interfaces/ComptrollerInterface.sol";
 import "../interfaces/ComptrollerFundInterface.sol";
+import "../interfaces/IMultiFeeDistribution.sol";
 import "./ComptrollerStorage.sol";
 import "./DelegateComptroller.sol";
 
@@ -1487,10 +1488,7 @@ contract Comptroller is
             Market storage market = markets[address(mToken)];
             require(market.isListed == true, "market is not listed");
 
-            if (
-                rewardSupplyState[address(mToken)].index == 0 &&
-                rewardSupplyState[address(mToken)].block == 0
-            ) {
+            if (rewardSupplyState[address(mToken)].index == 0) {
                 rewardSupplyState[address(mToken)] = RewardMarketState({
                     index: rewardInitialIndex,
                     block: safe32(
@@ -1500,10 +1498,7 @@ contract Comptroller is
                 });
             }
 
-            if (
-                rewardBorrowState[address(mToken)].index == 0 &&
-                rewardBorrowState[address(mToken)].block == 0
-            ) {
+            if (rewardBorrowState[address(mToken)].index == 0) {
                 rewardBorrowState[address(mToken)] = RewardMarketState({
                     index: rewardInitialIndex,
                     block: safe32(
@@ -1736,9 +1731,8 @@ contract Comptroller is
         if (amount == 0) {
             return 0;
         }
-        address rewardToken = getRewardAddress();
-        ComptrollerFundInterface comptrollerFund = ComptrollerFundInterface(getComptrollerFundAddress());
-        comptrollerFund.transferTo(rewardToken, user, amount);
+        IMultiFeeDistribution rewardDistributor = IMultiFeeDistribution(getRewardDistributor());
+        rewardDistributor.mint(user, amount);
         return 0;
     }
 
@@ -1768,18 +1762,10 @@ contract Comptroller is
     }
 
     /**
-     * @notice Return the address of the REWARD token
-     * @return The address of REWARD
+     * @notice Return the address of the reward distributor contract
+     * @return the address of the reward distributor contract
      */
-    function getRewardAddress() public pure returns (address) {
-        return 0xd38882E6D0757AAA49A050C715d1168Bf7746D57;
-    }
-
-    /**
-     * @notice Return the address of the Comptroller fund contract
-     * @return the address of the Comptroller fund contract
-     */
-    function getComptrollerFundAddress() public pure returns (address) {
+    function getRewardDistributor() public pure returns (address) {
         return 0x6d903f6003cca6255D85CcA4D3B5E5146dC33925;
     }
 
