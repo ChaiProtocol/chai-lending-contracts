@@ -117,7 +117,7 @@ contract MErc20 is MToken, MErc20Interface {
     function sweepToken(EIP20NonStandardInterface token) external {
     	require(address(token) != underlying, "MErc20::sweepToken: can not sweep underlying token");
     	uint256 balance = token.balanceOf(address(this));
-    	token.transfer(admin, balance);
+    	safeTransfer(token, admin, balance);
     }
 
     /**
@@ -188,6 +188,10 @@ contract MErc20 is MToken, MErc20Interface {
      */
     function doTransferOut(address payable to, uint amount) internal {
         EIP20NonStandardInterface token = EIP20NonStandardInterface(underlying);
+        safeTransfer(token, to, amount);
+    }
+
+    function safeTransfer(EIP20NonStandardInterface token, address to, uint amount) {
         token.transfer(to, amount);
 
         bool success;
