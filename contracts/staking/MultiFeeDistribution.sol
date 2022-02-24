@@ -78,6 +78,7 @@ contract MultiFeeDistribution is ReentrancyGuard, Ownable {
         // related to the 50% penalty and distribution to locked balances
         rewardTokens.push(_stakingToken);
         rewardData[_stakingToken].lastUpdateTime = block.timestamp;
+        rewardData[_stakingToken].periodFinish = block.timestamp;
     }
 
     /* ========== ADMIN CONFIGURATION ========== */
@@ -478,7 +479,6 @@ contract MultiFeeDistribution is ReentrancyGuard, Ownable {
     event Staked(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, address indexed rewardsToken, uint256 reward);
-    event RewardsDurationUpdated(address token, uint256 newDuration);
     event Recovered(address token, uint256 amount);
     event MinterChanged(address indexed minter, bool added);
 }
