@@ -1,7 +1,7 @@
 Chai Lending Protocol
 =================
 
-The Chai Lending Protocol is an Ethereum smart contract for supplying or borrowing assets. Through the chToken contracts, accounts on the blockchain *supply* capital (Ether or ERC-20 tokens) to receive mTokens or *borrow* assets from the protocol (holding other assets as collateral). The Chai chToken contracts track these balances and algorithmically set interest rates for borrowers.
+The Chai Lending Protocol is an Ethereum smart contract for supplying or borrowing assets. Through the chToken contracts, accounts on the blockchain *supply* capital (Ether or ERC-20 tokens) to receive chTokens or *borrow* assets from the protocol (holding other assets as collateral). The Chai chToken contracts track these balances and algorithmically set interest rates for borrowers.
 
 Contracts
 =========
@@ -15,12 +15,7 @@ We detail a few of the core contracts in the Chai protocol.
 
 <dl>
   <dt>Comptroller</dt>
-  <dd>The risk model contract, which validates permissible user actions and disallows actions if they do not fit certain risk parameters. For instance, the Comptroller enforces that each borrowing user must maintain a sufficient collateral balance across all mTokens.</dd>
-</dl>
-
-<dl>
-  <dt>Moji</dt>
-  <dd>The Mojito Governance Token (MOJI). Holders of this token have the ability to govern the protocol via the governor contract.</dd>
+  <dd>The risk model contract, which validates permissible user actions and disallows actions if they do not fit certain risk parameters. For instance, the Comptroller enforces that each borrowing user must maintain a sufficient collateral balance across all chTokens.</dd>
 </dl>
 
 <dl>
