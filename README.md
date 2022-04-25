@@ -1,16 +1,16 @@
-Mojito Protocol
+Chai Lending Protocol
 =================
 
-The Mojito Protocol is an Ethereum smart contract for supplying or borrowing assets. Through the mToken contracts, accounts on the blockchain *supply* capital (Ether or ERC-20 tokens) to receive mTokens or *borrow* assets from the protocol (holding other assets as collateral). The Mojito mToken contracts track these balances and algorithmically set interest rates for borrowers.
+The Chai Lending Protocol is an Ethereum smart contract for supplying or borrowing assets. Through the chToken contracts, accounts on the blockchain *supply* capital (Ether or ERC-20 tokens) to receive mTokens or *borrow* assets from the protocol (holding other assets as collateral). The Chai chToken contracts track these balances and algorithmically set interest rates for borrowers.
 
 Contracts
 =========
 
-We detail a few of the core contracts in the Mojito protocol.
+We detail a few of the core contracts in the Chai protocol.
 
 <dl>
-  <dt>MToken, MErc20 and MEther</dt>
-  <dd>The Mojito mTokens, which are self-contained borrowing and lending contracts. MToken contains the core logic and MErc20 and MEther add public interfaces for Erc20 tokens and ether, respectively. Each MToken is assigned an interest rate and risk model (see InterestRateModel and Comptroller sections), and allows accounts to *mint* (supply capital), *redeem* (withdraw capital), *borrow* and *repay a borrow*. Each MToken is an ERC-20 compliant token where balances represent ownership of the market.</dd>
+  <dt>ChToken, ChErc20 and ChEther</dt>
+  <dd>The Chai chTokens, which are self-contained borrowing and lending contracts. ChToken contains the core logic and ChErc20 and ChEther add public interfaces for Erc20 tokens and ether, respectively. Each ChToken is assigned an interest rate and risk model (see InterestRateModel and Comptroller sections), and allows accounts to *mint* (supply capital), *redeem* (withdraw capital), *borrow* and *repay a borrow*. Each ChToken is an ERC-20 compliant token where balances represent ownership of the market.</dd>
 </dl>
 
 <dl>
