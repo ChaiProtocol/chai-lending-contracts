@@ -1,6 +1,6 @@
 pragma solidity ^0.5.16;
 
-import "../MToken/MToken.sol";
+import "../ChToken/ChToken.sol";
 import "../interfaces/PriceOracle.sol";
 import "./DelegateComptrollerAdminStorage.sol";
 
@@ -46,10 +46,10 @@ contract ComptrollerStorage is DelegateComptrollerAdminStorage {
     /**
      * @notice Per-account mapping of "assets you are in", capped by maxAssets
      */
-    mapping(address => MToken[]) public accountAssets;
+    mapping(address => ChToken[]) public accountAssets;
 
     /**
-     * @notice Official mapping of mTokens -> Market metadata
+     * @notice Official mapping of chTokens -> Market metadata
      * @dev Used e.g. to determine if a market is supported
      */
     mapping(address => Market) public markets;
@@ -67,7 +67,7 @@ contract ComptrollerStorage is DelegateComptrollerAdminStorage {
     mapping(address => bool) public borrowGuardianPaused;
 
     /// @notice A list of all markets
-    MToken[] public allMarkets;
+    ChToken[] public allMarkets;
 
     /// @notice The portion of rewardRate that each market currently receives
     mapping(address => uint) public rewardSpeeds;
@@ -90,12 +90,19 @@ contract ComptrollerStorage is DelegateComptrollerAdminStorage {
     /// @notice The borrowCapGuardian can set borrowCaps to any number for any market. Lowering the borrow cap could disable borrowing on the given market.
     address public borrowCapGuardian;
 
-    /// @notice Borrow caps enforced by borrowAllowed for each mToken address. Defaults to zero which corresponds to unlimited borrowing.
+    /// @notice Borrow caps enforced by borrowAllowed for each chToken address. Defaults to zero which corresponds to unlimited borrowing.
     mapping(address => uint) public borrowCaps;
+
+    /// @deprecated
+    /// @notice multiplier to calculate the maximum value an account can borrow
+    uint256 public borrowLimitMantissa;
 
     /// @notice multiplier to calculate the maximum value an account can borrow for each market
     mapping(address => uint) public liquidationThreshold;
 
     /// @notice Multiplier representing the discount on collateral that a liquidator receives for each market
     mapping(address => uint) public liquidationIncentive;
+
+    /// @notice the ProfitController can call reduce reserves and receive profit
+    address public profitController;
 }

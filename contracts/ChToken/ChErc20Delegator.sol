@@ -1,13 +1,13 @@
-pragma solidity >=0.5.16;
+pragma solidity ^0.5.16;
 
-import "../interfaces/MTokenInterfaces.sol";
+import "../interfaces/ChTokenInterface.sol";
 
 /**
- * @title Mojito's MErc20Delegator Contract
- * @notice MTokens which wrap an EIP-20 underlying and delegate to an implementation
- * @author Mojito developers
+ * @title Chai's ChErc20Delegator Contract
+ * @notice ChTokens which wrap an EIP-20 underlying and delegate to an implementation
+ * @author Chai developers
  */
-contract MErc20Delegator is MTokenInterface, MErc20Interface, MDelegatorInterface {
+contract ChErc20Delegator is ChTokenInterface, ChErc20Interface, MDelegatorInterface {
     /**
      * @notice Construct a new money market
      * @param underlying_ The address of the underlying asset
@@ -58,7 +58,7 @@ contract MErc20Delegator is MTokenInterface, MErc20Interface, MDelegatorInterfac
      * @param becomeImplementationData The encoded bytes data to be passed to _becomeImplementation
      */
     function _setImplementation(address implementation_, bool allowResign, bytes memory becomeImplementationData) public {
-        require(msg.sender == admin, "MErc20Delegator::_setImplementation: Caller must be admin");
+        require(msg.sender == admin, "ChErc20Delegator::_setImplementation: Caller must be admin");
 
         if (allowResign) {
             delegateToImplementation(abi.encodeWithSignature("_resignImplementation()"));
@@ -73,7 +73,7 @@ contract MErc20Delegator is MTokenInterface, MErc20Interface, MDelegatorInterfac
     }
 
     /**
-     * @notice Sender supplies assets into the market and receives mTokens in exchange
+     * @notice Sender supplies assets into the market and receives chTokens in exchange
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
      * @param mintAmount The amount of the underlying asset to supply
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
@@ -84,18 +84,18 @@ contract MErc20Delegator is MTokenInterface, MErc20Interface, MDelegatorInterfac
     }
 
     /**
-     * @notice Sender redeems mTokens in exchange for the underlying asset
+     * @notice Sender redeems chTokens in exchange for the underlying asset
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
-     * @param redeemTokens The number of mTokens to redeem into underlying
+     * @param redeechTokens The number of chTokens to redeem into underlying
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function redeem(uint redeemTokens) external returns (uint) {
-        bytes memory data = delegateToImplementation(abi.encodeWithSignature("redeem(uint256)", redeemTokens));
+    function redeem(uint redeechTokens) external returns (uint) {
+        bytes memory data = delegateToImplementation(abi.encodeWithSignature("redeem(uint256)", redeechTokens));
         return abi.decode(data, (uint));
     }
 
     /**
-     * @notice Sender redeems mTokens in exchange for a specified amount of underlying asset
+     * @notice Sender redeems chTokens in exchange for a specified amount of underlying asset
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
      * @param redeemAmount The amount of underlying to redeem
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
@@ -139,13 +139,13 @@ contract MErc20Delegator is MTokenInterface, MErc20Interface, MDelegatorInterfac
     /**
      * @notice The sender liquidates the borrowers collateral.
      *  The collateral seized is transferred to the liquidator.
-     * @param borrower The borrower of this mToken to be liquidated
-     * @param mTokenCollateral The market in which to seize collateral from the borrower
+     * @param borrower The borrower of this chToken to be liquidated
+     * @param chTokenCollateral The market in which to seize collateral from the borrower
      * @param repayAmount The amount of the underlying borrowed asset to repay
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function liquidateBorrow(address borrower, uint repayAmount, MTokenInterface mTokenCollateral) external returns (uint) {
-        bytes memory data = delegateToImplementation(abi.encodeWithSignature("liquidateBorrow(address,uint256,address)", borrower, repayAmount, mTokenCollateral));
+    function liquidateBorrow(address borrower, uint repayAmount, ChTokenInterface chTokenCollateral) external returns (uint) {
+        bytes memory data = delegateToImplementation(abi.encodeWithSignature("liquidateBorrow(address,uint256,address)", borrower, repayAmount, chTokenCollateral));
         return abi.decode(data, (uint));
     }
 
@@ -229,7 +229,7 @@ contract MErc20Delegator is MTokenInterface, MErc20Interface, MDelegatorInterfac
     }
 
     /**
-     * @notice Returns the current per-block borrow interest rate for this mToken
+     * @notice Returns the current per-block borrow interest rate for this chToken
      * @return The borrow interest rate per block, scaled by 1e18
      */
     function borrowRatePerBlock() external view returns (uint) {
@@ -238,7 +238,7 @@ contract MErc20Delegator is MTokenInterface, MErc20Interface, MDelegatorInterfac
     }
 
     /**
-     * @notice Returns the current per-block supply interest rate for this mToken
+     * @notice Returns the current per-block supply interest rate for this chToken
      * @return The supply interest rate per block, scaled by 1e18
      */
     function supplyRatePerBlock() external view returns (uint) {
@@ -295,7 +295,7 @@ contract MErc20Delegator is MTokenInterface, MErc20Interface, MDelegatorInterfac
     }
 
     /**
-     * @notice Get cash balance of this mToken in the underlying asset
+     * @notice Get cash balance of this chToken in the underlying asset
      * @return The quantity of underlying asset owned by this contract
      */
     function getCash() external view returns (uint) {
@@ -315,11 +315,11 @@ contract MErc20Delegator is MTokenInterface, MErc20Interface, MDelegatorInterfac
 
     /**
      * @notice Transfers collateral tokens (this market) to the liquidator.
-     * @dev Will fail unless called by another mToken during the process of liquidation.
-     *  Its absolutely critical to use msg.sender as the borrowed mToken and not a parameter.
+     * @dev Will fail unless called by another chToken during the process of liquidation.
+     *  Its absolutely critical to use msg.sender as the borrowed chToken and not a parameter.
      * @param liquidator The account receiving seized collateral
      * @param borrower The account having collateral seized
-     * @param seizeTokens The number of mTokens to seize
+     * @param seizeTokens The number of chTokens to seize
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
     function seize(address liquidator, address borrower, uint seizeTokens) external returns (uint) {
@@ -459,7 +459,7 @@ contract MErc20Delegator is MTokenInterface, MErc20Interface, MDelegatorInterfac
      * @dev It returns to the external caller whatever the implementation returns or forwards reverts
      */
     function () external payable {
-        require(msg.value == 0,"MErc20Delegator:fallback: cannot send value to fallback");
+        require(msg.value == 0,"ChErc20Delegator:fallback: cannot send value to fallback");
 
         // delegate all other functions to current implementation
         (bool success, ) = implementation.delegatecall(msg.data);

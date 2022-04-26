@@ -1,14 +1,14 @@
-pragma solidity >=0.5.16;
+pragma solidity ^0.5.16;
 
-import "./MToken.sol";
+import "./ChToken.sol";
 
 /**
- * @title Mojito's MErc20 Contract
- * @notice MTokens which wrap an EIP-20 underlying
- * @author Mojito developers
+ * @title Chai's ChErc20 Contract
+ * @notice ChTokens which wrap an EIP-20 underlying
+ * @author Chai developers
  * Inherit from Compound cToken
  */
-contract MErc20 is MToken, MErc20Interface {
+contract ChErc20 is ChToken, ChErc20Interface {
     /**
      * @notice Initialize the new money market
      * @param underlying_ The address of the underlying asset
@@ -37,7 +37,7 @@ contract MErc20 is MToken, MErc20Interface {
     /*** User Interface ***/
 
     /**
-     * @notice Sender supplies assets into the market and receives MTokens in exchange
+     * @notice Sender supplies assets into the market and receives ChTokens in exchange
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
      * @param mintAmount The amount of the underlying asset to supply
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
@@ -48,17 +48,17 @@ contract MErc20 is MToken, MErc20Interface {
     }
 
     /**
-     * @notice Sender redeems MTokens in exchange for the underlying asset
+     * @notice Sender redeems ChTokens in exchange for the underlying asset
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
-     * @param redeemTokens The number of MTokens to redeem into underlying
+     * @param redeechTokens The number of ChTokens to redeem into underlying
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function redeem(uint redeemTokens) external returns (uint) {
-        return redeemInternal(redeemTokens);
+    function redeem(uint redeechTokens) external returns (uint) {
+        return redeemInternal(redeechTokens);
     }
 
     /**
-     * @notice Sender redeems MTokens in exchange for a specified amount of underlying asset
+     * @notice Sender redeems ChTokens in exchange for a specified amount of underlying asset
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
      * @param redeemAmount The amount of underlying to redeem
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
@@ -100,13 +100,13 @@ contract MErc20 is MToken, MErc20Interface {
     /**
      * @notice The sender liquidates the borrowers collateral.
      *  The collateral seized is transferred to the liquidator.
-     * @param borrower The borrower of this MToken to be liquidated
+     * @param borrower The borrower of this ChToken to be liquidated
      * @param repayAmount The amount of the underlying borrowed asset to repay
-     * @param mTokenCollateral The market in which to seize collateral from the borrower
+     * @param chTokenCollateral The market in which to seize collateral from the borrower
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function liquidateBorrow(address borrower, uint repayAmount, MTokenInterface mTokenCollateral) external returns (uint) {
-        (uint err,) = liquidateBorrowInternal(borrower, repayAmount, mTokenCollateral);
+    function liquidateBorrow(address borrower, uint repayAmount, ChTokenInterface chTokenCollateral) external returns (uint) {
+        (uint err,) = liquidateBorrowInternal(borrower, repayAmount, chTokenCollateral);
         return err;
     }
 
@@ -115,7 +115,7 @@ contract MErc20 is MToken, MErc20Interface {
      * @param token The address of the ERC-20 token to sweep
      */
     function sweepToken(EIP20NonStandardInterface token) external {
-    	require(address(token) != underlying, "MErc20::sweepToken: can not sweep underlying token");
+    	require(address(token) != underlying, "ChErc20::sweepToken: can not sweep underlying token");
     	uint256 balance = token.balanceOf(address(this));
     	safeTransfer(token, admin, balance);
     }

@@ -1,11 +1,11 @@
-pragma solidity >=0.5.16;
+pragma solidity ^0.5.16;
 
 import "../common/ErrorReporter.sol";
 import "./ComptrollerStorage.sol";
 /**
  * @title ComptrollerCore
  * @dev Storage for the comptroller is at this address, while execution is delegated to the `comptrollerImplementation`.
- * MTokens should reference this contract as their comptroller.
+ * ChTokens should reference this contract as their comptroller.
  */
 contract DelegateComptroller is DelegateComptrollerAdminStorage, ComptrollerErrorReporter {
 

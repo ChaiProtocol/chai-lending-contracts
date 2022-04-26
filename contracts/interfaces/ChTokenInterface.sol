@@ -4,7 +4,7 @@ import "../interest/InterestRateModel.sol";
 import "./ComptrollerInterface.sol";
 import "./EIP20NonStandardInterface.sol";
 
-contract MTokenStorage {
+contract ChTokenStorage {
     /**
      * @dev Guard variable for re-entrancy checks
      */
@@ -47,7 +47,7 @@ contract MTokenStorage {
     address payable public pendingAdmin;
 
     /**
-     * @notice Contract which oversees inter-MToken operations
+     * @notice Contract which oversees inter-ChToken operations
      */
     ComptrollerInterface public comptroller;
 
@@ -57,7 +57,7 @@ contract MTokenStorage {
     InterestRateModel public interestRateModel;
 
     /**
-     * @notice Initial exchange rate used when minting the first MTokens (used when totalSupply = 0)
+     * @notice Initial exchange rate used when minting the first ChTokens (used when totalSupply = 0)
      */
     uint internal initialExchangeRateMantissa;
 
@@ -117,11 +117,11 @@ contract MTokenStorage {
     mapping(address => BorrowSnapshot) internal accountBorrows;
 }
 
-contract MTokenInterface is MTokenStorage {
+contract ChTokenInterface is ChTokenStorage {
     /**
-     * @notice Indicator that this is a MToken contract (for inspection)
+     * @notice Indicator that this is a ChToken contract (for inspection)
      */
-    bool public constant isMToken = true;
+    bool public constant isChToken = true;
 
 
     /*** Market Events ***/
@@ -139,7 +139,7 @@ contract MTokenInterface is MTokenStorage {
     /**
      * @notice Event emitted when tokens are redeemed
      */
-    event Redeem(address redeemer, uint redeemAmount, uint redeemTokens);
+    event Redeem(address redeemer, uint redeemAmount, uint redeechTokens);
 
     /**
      * @notice Event emitted when underlying is borrowed
@@ -154,7 +154,7 @@ contract MTokenInterface is MTokenStorage {
     /**
      * @notice Event emitted when a borrow is liquidated
      */
-    event LiquidateBorrow(address liquidator, address borrower, uint repayAmount, address mTokenCollateral, uint seizeTokens);
+    event LiquidateBorrow(address liquidator, address borrower, uint repayAmount, address chTokenCollateral, uint seizeTokens);
 
 
     /*** Admin Events ***/
@@ -192,7 +192,7 @@ contract MTokenInterface is MTokenStorage {
     /**
      * @notice Event emitted when the reserves are reduced
      */
-    event ReservesReduced(address admin, uint reduceAmount, uint newTotalReserves);
+    event ReservesReduced(address profitController, uint reduceAmount, uint newTotalReserves);
 
     /**
      * @notice EIP20 Transfer event
@@ -241,24 +241,24 @@ contract MTokenInterface is MTokenStorage {
     function _setInterestRateModel(InterestRateModel newInterestRateModel) public returns (uint);
 }
 
-contract MErc20Storage {
+contract ChErc20Storage {
     /**
-     * @notice Underlying asset for this MToken
+     * @notice Underlying asset for this ChToken
      */
     address public underlying;
 }
 
-contract MErc20Interface is MErc20Storage {
+contract ChErc20Interface is ChErc20Storage {
 
     /*** User Interface ***/
 
     function mint(uint mintAmount) external returns (uint);
-    function redeem(uint redeemTokens) external returns (uint);
+    function redeem(uint redeechTokens) external returns (uint);
     function redeemUnderlying(uint redeemAmount) external returns (uint);
     function borrow(uint borrowAmount) external returns (uint);
     function repayBorrow(uint repayAmount) external returns (uint);
     function repayBorrowBehalf(address borrower, uint repayAmount) external returns (uint);
-    function liquidateBorrow(address borrower, uint repayAmount, MTokenInterface mTokenCollateral) external returns (uint);
+    function liquidateBorrow(address borrower, uint repayAmount, ChTokenInterface chTokenCollateral) external returns (uint);
     function sweepToken(EIP20NonStandardInterface token) external;
 
 

@@ -4,8 +4,8 @@ import "../common/SafeMath.sol";
 import "./InterestRateModel.sol";
 
 /**
-  * @title Logic for Mojito's JumpRateModel Contract V2.
-  * @author Mojito developers
+  * @title Logic for Chai's JumpRateModel Contract V2.
+  * @author Chai developers
   * @notice Version 2 modifies Version 1 by enabling updateable parameters.
   */
 contract BaseJumpRateModelV2 {
@@ -140,9 +140,9 @@ contract BaseJumpRateModelV2 {
 
 
 /**
-  * @title Compound's JumpRateModel Contract V2 for V2 mTokens
+  * @title Chai's JumpRateModel Contract V2 for V2 chTokens
   * @author Arr00
-  * @notice Supports only for V2 mTokens
+  * @notice Supports only for V2 chTokens
   */
 contract JumpRateModelV2 is InterestRateModel, BaseJumpRateModelV2  {
 

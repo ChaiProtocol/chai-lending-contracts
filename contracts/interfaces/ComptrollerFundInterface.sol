@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity >=0.5.16;
+pragma solidity ^0.5.16;
 
 interface ComptrollerFundInterface {
     function transferTo(

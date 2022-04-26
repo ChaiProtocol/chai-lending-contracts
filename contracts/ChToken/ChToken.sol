@@ -1,18 +1,18 @@
-pragma solidity >=0.5.16;
+pragma solidity ^0.5.16;
 
 import "../interfaces/ComptrollerInterface.sol";
-import "../interfaces/MTokenInterfaces.sol";
+import "../interfaces/ChTokenInterface.sol";
 import "../interest/InterestRateModel.sol";
 import "../interfaces/EIP20Interface.sol";
 import "../common/ErrorReporter.sol";
 import "../common/Exponential.sol";
 
 /**
- * @title Mojito's MToken Contract
- * @notice Abstract base for MTokens
- * @author Mojito developers
+ * @title Chai's ChToken Contract
+ * @notice Abstract base for ChTokens
+ * @author Chai developers
  */
-contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
+contract ChToken is ChTokenInterface, Exponential, TokenErrorReporter {
     /**
      * @notice Initialize the money market
      * @param comptroller_ The address of the Comptroller
@@ -75,7 +75,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
      * @param tokens The number of tokens to transfer
      * @return Whether or not the transfer succeeded
      */
-    function transferMTokens(
+    function transferChTokens(
         address spender,
         address src,
         address dst,
@@ -113,7 +113,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         /* Do the calculations, checking for {under,over}flow */
         MathError mathErr;
         uint256 allowanceNew;
-        uint256 srMTokensNew;
+        uint256 srChTokensNew;
         uint256 dstTokensNew;
 
         (mathErr, allowanceNew) = subUInt(startingAllowance, tokens);
@@ -121,7 +121,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
             return fail(Error.MATH_ERROR, FailureInfo.TRANSFER_NOT_ALLOWED);
         }
 
-        (mathErr, srMTokensNew) = subUInt(accountTokens[src], tokens);
+        (mathErr, srChTokensNew) = subUInt(accountTokens[src], tokens);
         if (mathErr != MathError.NO_ERROR) {
             return fail(Error.MATH_ERROR, FailureInfo.TRANSFER_NOT_ENOUGH);
         }
@@ -135,7 +135,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         // EFFECTS & INTERACTIONS
         // (No safe failures beyond this point)
 
-        accountTokens[src] = srMTokensNew;
+        accountTokens[src] = srChTokensNew;
         accountTokens[dst] = dstTokensNew;
 
         /* Eat some of the allowance (if necessary) */
@@ -164,7 +164,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         returns (bool)
     {
         return
-            transferMTokens(msg.sender, msg.sender, dst, amount) ==
+            transferChTokens(msg.sender, msg.sender, dst, amount) ==
             uint256(Error.NO_ERROR);
     }
 
@@ -181,7 +181,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         uint256 amount
     ) external nonReentrant returns (bool) {
         return
-            transferMTokens(msg.sender, src, dst, amount) ==
+            transferChTokens(msg.sender, src, dst, amount) ==
             uint256(Error.NO_ERROR);
     }
 
@@ -255,7 +255,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
             uint256
         )
     {
-        uint256 mTokenBalance = accountTokens[account];
+        uint256 chTokenBalance = accountTokens[account];
         uint256 borrowBalance;
         uint256 exchangeRateMantissa;
 
@@ -273,7 +273,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
 
         return (
             uint256(Error.NO_ERROR),
-            mTokenBalance,
+            chTokenBalance,
             borrowBalance,
             exchangeRateMantissa
         );
@@ -288,7 +288,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
     }
 
     /**
-     * @notice Returns the current per-block borrow interest rate for this MToken
+     * @notice Returns the current per-block borrow interest rate for this ChToken
      * @return The borrow interest rate per block, scaled by 1e18
      */
     function borrowRatePerBlock() external view returns (uint256) {
@@ -301,7 +301,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
     }
 
     /**
-     * @notice Returns the current per-block supply interest rate for this MToken
+     * @notice Returns the current per-block supply interest rate for this ChToken
      * @return The supply interest rate per block, scaled by 1e18
      */
     function supplyRatePerBlock() external view returns (uint256) {
@@ -421,7 +421,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
     }
 
     /**
-     * @notice Calculates the exchange rate from the underlying to the MToken
+     * @notice Calculates the exchange rate from the underlying to the ChToken
      * @dev This function does not accrue interest before calculating the exchange rate
      * @return Calculated exchange rate scaled by 1e18
      */
@@ -435,7 +435,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
     }
 
     /**
-     * @notice Calculates the exchange rate from the underlying to the MToken
+     * @notice Calculates the exchange rate from the underlying to the ChToken
      * @dev This function does not accrue interest before calculating the exchange rate
      * @return (error code, calculated exchange rate scaled by 1e18)
      */
@@ -483,7 +483,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
     }
 
     /**
-     * @notice Get cash balance of this MToken in the underlying asset
+     * @notice Get cash balance of this ChToken in the underlying asset
      * @return The quantity of underlying asset owned by this contract
      */
     function getCash() external view returns (uint256) {
@@ -638,7 +638,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
     }
 
     /**
-     * @notice Sender supplies assets into the market and receives MTokens in exchange
+     * @notice Sender supplies assets into the market and receives ChTokens in exchange
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
      * @param mintAmount The amount of the underlying asset to supply
      * @return (uint, uint) An error code (0=success, otherwise a failure, see ErrorReporter.sol), and the actual mint amount.
@@ -671,7 +671,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
     }
 
     /**
-     * @notice User supplies assets into the market and receives MTokens in exchange
+     * @notice User supplies assets into the market and receives ChTokens in exchange
      * @dev Assumes interest has already been accrued up to the current block
      * @param minter The address of the account which is supplying the assets
      * @param mintAmount The amount of the underlying asset to supply
@@ -729,16 +729,16 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
 
         /*
          *  We call `doTransferIn` for the minter and the mintAmount.
-         *  Note: The MToken must handle variations between ERC-20 and ETH underlying.
+         *  Note: The ChToken must handle variations between ERC-20 and ETH underlying.
          *  `doTransferIn` reverts if anything goes wrong, since we can't be sure if
          *  side-effects occurred. The function returns the amount actually transferred,
-         *  in case of a fee. On success, the MToken holds an additional `actualMintAmount`
+         *  in case of a fee. On success, the ChToken holds an additional `actualMintAmount`
          *  of cash.
          */
         vars.actualMintAmount = doTransferIn(minter, mintAmount);
 
         /*
-         * We get the current exchange rate and calculate the number of MTokens to be minted:
+         * We get the current exchange rate and calculate the number of ChTokens to be minted:
          *  mintTokens = actualMintAmount / exchangeRate
          */
 
@@ -752,7 +752,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         );
 
         /*
-         * We calculate the new total supply of MTokens and minter token balance, checking for overflow:
+         * We calculate the new total supply of ChTokens and minter token balance, checking for overflow:
          *  totalSupplyNew = totalSupply + mintTokens
          *  accountTokensNew = accountTokens[minter] + mintTokens
          */
@@ -790,12 +790,12 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
     }
 
     /**
-     * @notice Sender redeems MTokens in exchange for the underlying asset
+     * @notice Sender redeems ChTokens in exchange for the underlying asset
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
-     * @param redeemTokens The number of MTokens to redeem into underlying
+     * @param redeechTokens The number of ChTokens to redeem into underlying
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function redeemInternal(uint256 redeemTokens)
+    function redeemInternal(uint256 redeechTokens)
         internal
         nonReentrant
         returns (uint256)
@@ -807,13 +807,13 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
                 fail(Error(error), FailureInfo.REDEEM_ACCRUE_INTEREST_FAILED);
         }
         // redeemFresh emits redeem-specific logs on errors, so we don't need to
-        return redeemFresh(msg.sender, redeemTokens, 0);
+        return redeemFresh(msg.sender, redeechTokens, 0);
     }
 
     /**
-     * @notice Sender redeems MTokens in exchange for a specified amount of underlying asset
+     * @notice Sender redeems ChTokens in exchange for a specified amount of underlying asset
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
-     * @param redeemAmount The amount of underlying to receive from redeeming MTokens
+     * @param redeemAmount The amount of underlying to receive from redeeming ChTokens
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
     function redeemUnderlyingInternal(uint256 redeemAmount)
@@ -835,28 +835,28 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         Error err;
         MathError mathErr;
         uint256 exchangeRateMantissa;
-        uint256 redeemTokens;
+        uint256 redeechTokens;
         uint256 redeemAmount;
         uint256 totalSupplyNew;
         uint256 accountTokensNew;
     }
 
     /**
-     * @notice User redeems MTokens in exchange for the underlying asset
+     * @notice User redeems ChTokens in exchange for the underlying asset
      * @dev Assumes interest has already been accrued up to the current block
      * @param redeemer The address of the account which is redeeming the tokens
-     * @param redeemTokensIn The number of MTokens to redeem into underlying (only one of redeemTokensIn or redeemAmountIn may be non-zero)
-     * @param redeemAmountIn The number of underlying tokens to receive from redeeming MTokens (only one of redeemTokensIn or redeemAmountIn may be non-zero)
+     * @param redeechTokensIn The number of ChTokens to redeem into underlying (only one of redeechTokensIn or redeemAmountIn may be non-zero)
+     * @param redeemAmountIn The number of underlying tokens to receive from redeeming ChTokens (only one of redeechTokensIn or redeemAmountIn may be non-zero)
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
     function redeemFresh(
         address payable redeemer,
-        uint256 redeemTokensIn,
+        uint256 redeechTokensIn,
         uint256 redeemAmountIn
     ) internal returns (uint256) {
         require(
-            redeemTokensIn == 0 || redeemAmountIn == 0,
-            "one of redeemTokensIn or redeemAmountIn must be zero"
+            redeechTokensIn == 0 || redeemAmountIn == 0,
+            "one of redeechTokensIn or redeemAmountIn must be zero"
         );
 
         RedeemLocalVars memory vars;
@@ -875,18 +875,18 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
                 );
         }
 
-        /* If redeemTokensIn > 0: */
-        if (redeemTokensIn > 0) {
+        /* If redeechTokensIn > 0: */
+        if (redeechTokensIn > 0) {
             /*
              * We calculate the exchange rate and the amount of underlying to be redeemed:
-             *  redeemTokens = redeemTokensIn
-             *  redeemAmount = redeemTokensIn x exchangeRateCurrent
+             *  redeechTokens = redeechTokensIn
+             *  redeemAmount = redeechTokensIn x exchangeRateCurrent
              */
-            vars.redeemTokens = redeemTokensIn;
+            vars.redeechTokens = redeechTokensIn;
 
             (vars.mathErr, vars.redeemAmount) = mulScalarTruncate(
                 Exp({mantissa: vars.exchangeRateMantissa}),
-                redeemTokensIn
+                redeechTokensIn
             );
             if (vars.mathErr != MathError.NO_ERROR) {
                 return
@@ -899,11 +899,11 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         } else {
             /*
              * We get the current exchange rate and calculate the amount to be redeemed:
-             *  redeemTokens = redeemAmountIn / exchangeRate
+             *  redeechTokens = redeemAmountIn / exchangeRate
              *  redeemAmount = redeemAmountIn
              */
 
-            (vars.mathErr, vars.redeemTokens) = divScalarByExpTruncate(
+            (vars.mathErr, vars.redeechTokens) = divScalarByExpTruncate(
                 redeemAmountIn,
                 Exp({mantissa: vars.exchangeRateMantissa})
             );
@@ -923,7 +923,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         uint256 allowed = comptroller.redeemAllowed(
             address(this),
             redeemer,
-            vars.redeemTokens
+            vars.redeechTokens
         );
         if (allowed != 0) {
             return
@@ -945,12 +945,12 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
 
         /*
          * We calculate the new total supply and redeemer balance, checking for underflow:
-         *  totalSupplyNew = totalSupply - redeemTokens
-         *  accountTokensNew = accountTokens[redeemer] - redeemTokens
+         *  totalSupplyNew = totalSupply - redeechTokens
+         *  accountTokensNew = accountTokens[redeemer] - redeechTokens
          */
         (vars.mathErr, vars.totalSupplyNew) = subUInt(
             totalSupply,
-            vars.redeemTokens
+            vars.redeechTokens
         );
         if (vars.mathErr != MathError.NO_ERROR) {
             return
@@ -963,7 +963,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
 
         (vars.mathErr, vars.accountTokensNew) = subUInt(
             accountTokens[redeemer],
-            vars.redeemTokens
+            vars.redeechTokens
         );
         if (vars.mathErr != MathError.NO_ERROR) {
             return
@@ -987,28 +987,28 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         // EFFECTS & INTERACTIONS
         // (No safe failures beyond this point)
 
+        /*
+         * We invoke doTransferOut for the redeemer and the redeemAmount.
+         *  Note: The ChToken must handle variations between ERC-20 and ETH underlying.
+         *  On success, the ChToken has redeemAmount less of cash.
+         *  doTransferOut reverts if anything goes wrong, since we can't be sure if side effects occurred.
+         */
         /* We write previously calculated values into storage */
         totalSupply = vars.totalSupplyNew;
         accountTokens[redeemer] = vars.accountTokensNew;
 
-        /*
-         * We invoke doTransferOut for the redeemer and the redeemAmount.
-         *  Note: The MToken must handle variations between ERC-20 and ETH underlying.
-         *  On success, the MToken has redeemAmount less of cash.
-         *  doTransferOut reverts if anything goes wrong, since we can't be sure if side effects occurred.
-         */
         doTransferOut(redeemer, vars.redeemAmount);
 
         /* We emit a Transfer event, and a Redeem event */
-        emit Transfer(redeemer, address(this), vars.redeemTokens);
-        emit Redeem(redeemer, vars.redeemAmount, vars.redeemTokens);
+        emit Transfer(redeemer, address(this), vars.redeechTokens);
+        emit Redeem(redeemer, vars.redeemAmount, vars.redeechTokens);
 
         /* We call the defense hook */
         comptroller.redeemVerify(
             address(this),
             redeemer,
             vars.redeemAmount,
-            vars.redeemTokens
+            vars.redeechTokens
         );
 
         return uint256(Error.NO_ERROR);
@@ -1140,8 +1140,8 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
 
         /*
          * We invoke doTransferOut for the borrower and the borrowAmount.
-         *  Note: The MToken must handle variations between ERC-20 and ETH underlying.
-         *  On success, the MToken borrowAmount less of cash.
+         *  Note: The ChToken must handle variations between ERC-20 and ETH underlying.
+         *  On success, the ChToken borrowAmount less of cash.
          *  doTransferOut reverts if anything goes wrong, since we can't be sure if side effects occurred.
          */
         doTransferOut(borrower, borrowAmount);
@@ -1304,8 +1304,8 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
 
         /*
          * We call doTransferIn for the payer and the repayAmount
-         *  Note: The MToken must handle variations between ERC-20 and ETH underlying.
-         *  On success, the MToken holds an additional repayAmount of cash.
+         *  Note: The ChToken must handle variations between ERC-20 and ETH underlying.
+         *  On success, the ChToken holds an additional repayAmount of cash.
          *  doTransferIn reverts if anything goes wrong, since we can't be sure if side effects occurred.
          *   it returns the amount actually transferred, in case of a fee.
          */
@@ -1358,15 +1358,15 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
     /**
      * @notice The sender liquidates the borrowers collateral.
      *  The collateral seized is transferred to the liquidator.
-     * @param borrower The borrower of this MToken to be liquidated
-     * @param mTokenCollateral The market in which to seize collateral from the borrower
+     * @param borrower The borrower of this ChToken to be liquidated
+     * @param chTokenCollateral The market in which to seize collateral from the borrower
      * @param repayAmount The amount of the underlying borrowed asset to repay
      * @return (uint, uint) An error code (0=success, otherwise a failure, see ErrorReporter.sol), and the actual repayment amount.
      */
     function liquidateBorrowInternal(
         address borrower,
         uint256 repayAmount,
-        MTokenInterface mTokenCollateral
+        ChTokenInterface chTokenCollateral
     ) internal nonReentrant returns (uint256, uint256) {
         uint256 error = accrueInterest();
         if (error != uint256(Error.NO_ERROR)) {
@@ -1380,7 +1380,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
             );
         }
 
-        error = mTokenCollateral.accrueInterest();
+        error = chTokenCollateral.accrueInterest();
         if (error != uint256(Error.NO_ERROR)) {
             // accrueInterest emits logs on errors, but we still want to log the fact that an attempted liquidation failed
             return (
@@ -1398,16 +1398,16 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
                 msg.sender,
                 borrower,
                 repayAmount,
-                mTokenCollateral
+                chTokenCollateral
             );
     }
 
     /**
      * @notice The liquidator liquidates the borrowers collateral.
      *  The collateral seized is transferred to the liquidator.
-     * @param borrower The borrower of this MToken to be liquidated
+     * @param borrower The borrower of this ChToken to be liquidated
      * @param liquidator The address repaying the borrow and seizing collateral
-     * @param mTokenCollateral The market in which to seize collateral from the borrower
+     * @param chTokenCollateral The market in which to seize collateral from the borrower
      * @param repayAmount The amount of the underlying borrowed asset to repay
      * @return (uint, uint) An error code (0=success, otherwise a failure, see ErrorReporter.sol), and the actual repayment amount.
      */
@@ -1415,12 +1415,12 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         address liquidator,
         address borrower,
         uint256 repayAmount,
-        MTokenInterface mTokenCollateral
+        ChTokenInterface chTokenCollateral
     ) internal returns (uint256, uint256) {
         /* Fail if liquidate not allowed */
         uint256 allowed = comptroller.liquidateBorrowAllowed(
             address(this),
-            address(mTokenCollateral),
+            address(chTokenCollateral),
             liquidator,
             borrower,
             repayAmount
@@ -1447,8 +1447,8 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
             );
         }
 
-        /* Verify MTokenCollateral market's block number equals current block number */
-        if (mTokenCollateral.accrualBlockNumber() != getBlockNumber()) {
+        /* Verify ChTokenCollateral market's block number equals current block number */
+        if (chTokenCollateral.accrualBlockNumber() != getBlockNumber()) {
             return (
                 fail(
                     Error.MARKET_NOT_FRESH,
@@ -1514,7 +1514,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         (uint256 amountSeizeError, uint256 seizeTokens) = comptroller
             .liquidateCalculateSeizeTokens(
                 address(this),
-                address(mTokenCollateral),
+                address(chTokenCollateral),
                 actualRepayAmount
             );
         require(
@@ -1524,13 +1524,13 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
 
         /* Revert if borrower collateral token balance < seizeTokens */
         require(
-            mTokenCollateral.balanceOf(borrower) >= seizeTokens,
+            chTokenCollateral.balanceOf(borrower) >= seizeTokens,
             "LIQUIDATE_SEIZE_TOO_MUCH"
         );
 
         // If this is also the collateral, run seizeInternal to avoid re-entrancy, otherwise make an external call
         uint256 seizeError;
-        if (address(mTokenCollateral) == address(this)) {
+        if (address(chTokenCollateral) == address(this)) {
             seizeError = seizeInternal(
                 address(this),
                 liquidator,
@@ -1538,7 +1538,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
                 seizeTokens
             );
         } else {
-            seizeError = mTokenCollateral.seize(
+            seizeError = chTokenCollateral.seize(
                 liquidator,
                 borrower,
                 seizeTokens
@@ -1553,24 +1553,24 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
             liquidator,
             borrower,
             actualRepayAmount,
-            address(mTokenCollateral),
+            address(chTokenCollateral),
             seizeTokens
         );
 
         /* We call the defense hook */
         // unused function
-        // comptroller.liquidateBorrowVerify(address(this), address(MTokenCollateral), liquidator, borrower, actualRepayAmount, seizeTokens);
+        // comptroller.liquidateBorrowVerify(address(this), address(ChTokenCollateral), liquidator, borrower, actualRepayAmount, seizeTokens);
 
         return (uint256(Error.NO_ERROR), actualRepayAmount);
     }
 
     /**
      * @notice Transfers collateral tokens (this market) to the liquidator.
-     * @dev Will fail unless called by another MToken during the process of liquidation.
-     *  Its absolutely critical to use msg.sender as the borrowed MToken and not a parameter.
+     * @dev Will fail unless called by another ChToken during the process of liquidation.
+     *  Its absolutely critical to use msg.sender as the borrowed ChToken and not a parameter.
      * @param liquidator The account receiving seized collateral
      * @param borrower The account having collateral seized
-     * @param seizeTokens The number of MTokens to seize
+     * @param seizeTokens The number of ChTokens to seize
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
     function seize(
@@ -1583,16 +1583,16 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
 
     /**
      * @notice Transfers collateral tokens (this market) to the liquidator.
-     * @dev Called only during an in-kind liquidation, or by liquidateBorrow during the liquidation of another MToken.
-     *  Its absolutely critical to use msg.sender as the seizer MToken and not a parameter.
-     * @param seizeMToken The contract seizing the collateral (i.e. borrowed MToken)
+     * @dev Called only during an in-kind liquidation, or by liquidateBorrow during the liquidation of another ChToken.
+     *  Its absolutely critical to use msg.sender as the seizer ChToken and not a parameter.
+     * @param seizeChToken The contract seizing the collateral (i.e. borrowed ChToken)
      * @param liquidator The account receiving seized collateral
      * @param borrower The account having collateral seized
-     * @param seizeTokens The number of MTokens to seize
+     * @param seizeTokens The number of ChTokens to seize
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
     function seizeInternal(
-        address seizeMToken,
+        address seizeChToken,
         address liquidator,
         address borrower,
         uint256 seizeTokens
@@ -1600,7 +1600,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         /* Fail if seize not allowed */
         uint256 allowed = comptroller.seizeAllowed(
             address(this),
-            seizeMToken,
+            seizeChToken,
             liquidator,
             borrower,
             seizeTokens
@@ -1624,15 +1624,15 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         }
 
         MathError mathErr;
-        uint256 borroweMTokensNew;
-        uint256 liquidatoMTokensNew;
+        uint256 borroweChTokensNew;
+        uint256 liquidatoChTokensNew;
 
         /*
          * We calculate the new borrower and liquidator token balances, failing on underflow/overflow:
-         *  borroweMTokensNew = accountTokens[borrower] - seizeTokens
-         *  liquidatoMTokensNew = accountTokens[liquidator] + seizeTokens
+         *  borroweChTokensNew = accountTokens[borrower] - seizeTokens
+         *  liquidatoChTokensNew = accountTokens[liquidator] + seizeTokens
          */
-        (mathErr, borroweMTokensNew) = subUInt(
+        (mathErr, borroweChTokensNew) = subUInt(
             accountTokens[borrower],
             seizeTokens
         );
@@ -1645,7 +1645,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
                 );
         }
 
-        (mathErr, liquidatoMTokensNew) = addUInt(
+        (mathErr, liquidatoChTokensNew) = addUInt(
             accountTokens[liquidator],
             seizeTokens
         );
@@ -1663,15 +1663,15 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         // (No safe failures beyond this point)
 
         /* We write the previously calculated values into storage */
-        accountTokens[borrower] = borroweMTokensNew;
-        accountTokens[liquidator] = liquidatoMTokensNew;
+        accountTokens[borrower] = borroweChTokensNew;
+        accountTokens[liquidator] = liquidatoChTokensNew;
 
         /* Emit a Transfer event */
         emit Transfer(borrower, liquidator, seizeTokens);
 
         /* We call the defense hook */
         // unused function
-        // comptroller.seizeVerify(address(this), seizeMToken, liquidator, borrower, seizeTokens);
+        // comptroller.seizeVerify(address(this), seizeChToken, liquidator, borrower, seizeTokens);
 
         return uint256(Error.NO_ERROR);
     }
@@ -1897,8 +1897,8 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
 
         /*
          * We call doTransferIn for the caller and the addAmount
-         *  Note: The MToken must handle variations between ERC-20 and ETH underlying.
-         *  On success, the MToken holds an additional addAmount of cash.
+         *  Note: The ChToken must handle variations between ERC-20 and ETH underlying.
+         *  On success, the ChToken holds an additional addAmount of cash.
          *  doTransferIn reverts if anything goes wrong, since we can't be sure if side effects occurred.
          *  it returns the amount actually transferred, in case of a fee.
          */
@@ -1924,7 +1924,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
     }
 
     /**
-     * @notice Accrues interest and reduces reserves by transferring to admin
+     * @notice Accrues interest and reduces reserves by transferring to profit controller
      * @param reduceAmount Amount of reduction to reserves
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
@@ -1947,7 +1947,7 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
     }
 
     /**
-     * @notice Reduces reserves by transferring to admin
+     * @notice Reduces reserves by transferring to profit controller
      * @dev Requires fresh interest accrual
      * @param reduceAmount Amount of reduction to reserves
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
@@ -1959,12 +1959,13 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         // totalReserves - reduceAmount
         uint256 totalReservesNew;
 
-        // Check caller is admin
-        if (msg.sender != admin) {
+        // Check caller is profit controller
+        address profitController = comptroller.getProfitController();
+        if (msg.sender != profitController) {
             return
                 fail(
                     Error.UNAUTHORIZED,
-                    FailureInfo.REDUCE_RESERVES_ADMIN_CHECK
+                    FailureInfo.REDUCE_RESERVES_CONTROLLER_CHECK
                 );
         }
 
@@ -2007,9 +2008,9 @@ contract MToken is MTokenInterface, Exponential, TokenErrorReporter {
         totalReserves = totalReservesNew;
 
         // doTransferOut reverts if anything goes wrong, since we can't be sure if side effects occurred.
-        doTransferOut(admin, reduceAmount);
+        doTransferOut(msg.sender, reduceAmount);
 
-        emit ReservesReduced(admin, reduceAmount, totalReservesNew);
+        emit ReservesReduced(msg.sender, reduceAmount, totalReservesNew);
 
         return uint256(Error.NO_ERROR);
     }

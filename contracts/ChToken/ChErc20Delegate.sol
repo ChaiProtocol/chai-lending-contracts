@@ -1,13 +1,13 @@
-pragma solidity >=0.5.16;
+pragma solidity ^0.5.16;
 
-import "./MErc20.sol";
+import "./ChErc20.sol";
 
 /**
- * @title Mojito's MErc20Delegate Contract
- * @notice MTokens which wrap an EIP-20 underlying and are delegated to
- * @author Mojito developers
+ * @title Chai's ChErc20Delegate Contract
+ * @notice ChTokens which wrap an EIP-20 underlying and are delegated to
+ * @author Chai developers
  */
-contract MErc20Delegate is MErc20, MDelegateInterface {
+contract ChErc20Delegate is ChErc20, MDelegateInterface {
     /**
      * @notice Construct an empty delegate
      */

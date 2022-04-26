@@ -1,12 +1,12 @@
-pragma solidity >=0.5.16;
+pragma solidity ^0.5.16;
 
-import "../MToken/MEther.sol";
+import "../ChToken/ChEther.sol";
 
-contract MEtherRepayDelegate {
-    MEther public mEther;
+contract ChEtherRepayDelegate {
+    ChEther public chEther;
 
-    constructor(MEther mEther_) public {
-        mEther = mEther_;
+    constructor(ChEther chEther_) public {
+        chEther = chEther_;
     }
 
     /**
@@ -16,27 +16,27 @@ contract MEtherRepayDelegate {
      * @return The initial borrows before the repay
      */
     function repayBehalf(address borrower) public payable {
-        return repayBehalfExplicit(borrower, mEther);
+        return repayBehalfExplicit(borrower, chEther);
     }
 
     /**
      * @notice msg.sender sends Ether to repay an account's borrow in a cEther market
      * @dev The provided Ether is applied towards the borrow balance, any excess is refunded
      * @param borrower The address of the borrower account to repay on behalf of
-     * @param mEther_ The address of the cEther contract to repay in
+     * @param chEther_ The address of the cEther contract to repay in
      * @return The initial borrows before the repay
      */
-    function repayBehalfExplicit(address borrower, MEther mEther_)
+    function repayBehalfExplicit(address borrower, ChEther chEther_)
         public
         payable
     {
         uint256 received = msg.value;
-        uint256 borrows = mEther_.borrowBalanceCurrent(borrower);
+        uint256 borrows = chEther_.borrowBalanceCurrent(borrower);
         if (received > borrows) {
-            mEther_.repayBorrowBehalf.value(borrows)(borrower);
+            chEther_.repayBorrowBehalf.value(borrows)(borrower);
             msg.sender.transfer(received - borrows);
         } else {
-            mEther_.repayBorrowBehalf.value(received)(borrower);
+            chEther_.repayBorrowBehalf.value(received)(borrower);
         }
     }
 }

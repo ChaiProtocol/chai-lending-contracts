@@ -6,61 +6,61 @@ contract ComptrollerInterface {
 
     /*** Assets You Are In ***/
 
-    function enterMarkets(address[] calldata mTokens)
+    function enterMarkets(address[] calldata chTokens)
         external
         returns (uint256[] memory);
 
-    function exitMarket(address mToken) external returns (uint256);
+    function exitMarket(address chToken) external returns (uint256);
 
     /*** Policy Hooks ***/
 
     function mintAllowed(
-        address mToken,
+        address chToken,
         address minter,
         uint256 mintAmount
     ) external returns (uint256);
 
     function mintVerify(
-        address mToken,
+        address chToken,
         address minter,
         uint256 mintAmount,
         uint256 mintTokens
     ) external;
 
     function redeemAllowed(
-        address mToken,
+        address chToken,
         address redeemer,
-        uint256 redeemTokens
+        uint256 redeechTokens
     ) external returns (uint256);
 
     function redeemVerify(
-        address mToken,
+        address chToken,
         address redeemer,
         uint256 redeemAmount,
-        uint256 redeemTokens
+        uint256 redeechTokens
     ) external;
 
     function borrowAllowed(
-        address mToken,
+        address chToken,
         address borrower,
         uint256 borrowAmount
     ) external returns (uint256);
 
     function borrowVerify(
-        address mToken,
+        address chToken,
         address borrower,
         uint256 borrowAmount
     ) external;
 
     function repayBorrowAllowed(
-        address mToken,
+        address chToken,
         address payer,
         address borrower,
         uint256 repayAmount
     ) external returns (uint256);
 
     function repayBorrowVerify(
-        address mToken,
+        address chToken,
         address payer,
         address borrower,
         uint256 repayAmount,
@@ -68,16 +68,16 @@ contract ComptrollerInterface {
     ) external;
 
     function liquidateBorrowAllowed(
-        address mTokenBorrowed,
-        address mTokenCollateral,
+        address chTokenBorrowed,
+        address chTokenCollateral,
         address liquidator,
         address borrower,
         uint256 repayAmount
     ) external returns (uint256);
 
     function liquidateBorrowVerify(
-        address mTokenBorrowed,
-        address mTokenCollateral,
+        address chTokenBorrowed,
+        address chTokenCollateral,
         address liquidator,
         address borrower,
         uint256 repayAmount,
@@ -85,40 +85,42 @@ contract ComptrollerInterface {
     ) external;
 
     function seizeAllowed(
-        address mTokenCollateral,
-        address mTokenBorrowed,
+        address chTokenCollateral,
+        address chTokenBorrowed,
         address liquidator,
         address borrower,
         uint256 seizeTokens
     ) external returns (uint256);
 
     function seizeVerify(
-        address mTokenCollateral,
-        address mTokenBorrowed,
+        address chTokenCollateral,
+        address chTokenBorrowed,
         address liquidator,
         address borrower,
         uint256 seizeTokens
     ) external;
 
     function transferAllowed(
-        address mToken,
+        address chToken,
         address src,
         address dst,
-        uint256 transfeMTokens
+        uint256 transfeChTokens
     ) external returns (uint256);
 
     function transferVerify(
-        address mToken,
+        address chToken,
         address src,
         address dst,
-        uint256 transfeMTokens
+        uint256 transfeChTokens
     ) external;
 
     /*** Liquidity/Liquidation Calculations ***/
 
     function liquidateCalculateSeizeTokens(
-        address mTokenBorrowed,
-        address mTokenCollateral,
+        address chTokenBorrowed,
+        address chTokenCollateral,
         uint256 repayAmount
     ) external view returns (uint256, uint256);
+
+    function getProfitController() external view returns(address);
 }

@@ -1,15 +1,15 @@
-pragma solidity >=0.5.16;
+pragma solidity ^0.5.16;
 
-import "./MErc20.sol";
+import "./ChErc20.sol";
 
 /**
- * @title Mojito's MErc20Immutable Contract
- * @notice MTokens which wrap an EIP-20 underlying and are immutable
- * @author Mojito developers
+ * @title Chai's ChErc20Immutable Contract
+ * @notice ChTokens which wrap an EIP-20 underlying and are immutable
+ * @author Chai developers
  */
-contract MErc20Immutable is MErc20 {
+contract ChErc20Immutable is ChErc20 {
     /** 
-     * MErc20
+     * ChErc20
      * @notice Construct a new money market
      * @param underlying_ The address of the underlying asset
      * @param comptroller_ The address of the Comptroller

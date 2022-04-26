@@ -1,11 +1,11 @@
-pragma solidity >=0.5.16;
+pragma solidity ^0.5.16;
 import "../common/ExponentialNoError.sol";
-import "../MToken/MToken.sol";
+import "../ChToken/ChToken.sol";
 
 interface RewardComptrollerInterface {
     function markets(address) external view returns (bool, uint256);
 
-    function getAllMarkets() external view returns (MToken[] memory);
+    function getAllMarkets() external view returns (ChToken[] memory);
 
     function rewardAccrued(address) external view returns (uint256);
 
@@ -28,9 +28,6 @@ interface RewardComptrollerInterface {
     function rewardInitialIndex() external view returns (uint256);
 }
 
-// RewardEstimator contract is used to estimate the pending unclaimed reward of an user
-// It simulates the way that Comptroller calculate the rewards when users claim
-
 contract RewardEstimator is ExponentialNoError {
     RewardComptrollerInterface public comptroller_;
 
@@ -52,28 +49,28 @@ contract RewardEstimator is ExponentialNoError {
     function calculateReward(
         RewardComptrollerInterface controller,
         address holder,
-        MToken[] memory mTokens
+        ChToken[] memory chTokens
     ) public view returns (uint256) {
         uint256 rewardAccrued = controller.rewardAccrued(holder);
-        for (uint256 i = 0; i < mTokens.length; i++) {
-            MToken mToken = mTokens[i];
+        for (uint256 i = 0; i < chTokens.length; i++) {
+            ChToken chToken = chTokens[i];
 
-            (bool isListed, ) = controller.markets(address(mToken));
+            (bool isListed, ) = controller.markets(address(chToken));
             if (!isListed) {
                 continue;
             }
 
-            Exp memory borrowIndex = Exp({mantissa: mToken.borrowIndex()});
+            Exp memory borrowIndex = Exp({mantissa: chToken.borrowIndex()});
             uint256 borrowIndexMantissa = calculateRewardBorrowIndex(
                 controller,
-                address(mToken),
+                address(chToken),
                 borrowIndex
             );
             rewardAccrued = add_(
                 rewardAccrued,
                 calculateBorrowerReward(
                     controller,
-                    address(mToken),
+                    address(chToken),
                     holder,
                     borrowIndexMantissa
                 )
@@ -81,13 +78,13 @@ contract RewardEstimator is ExponentialNoError {
 
             uint256 supplyIndexMantissa = calculateRewardSupplyIndex(
                 controller,
-                address(mToken)
+                address(chToken)
             );
             rewardAccrued = add_(
                 rewardAccrued,
                 calculateSupplierReward(
                     controller,
-                    address(mToken),
+                    address(chToken),
                     holder,
                     supplyIndexMantissa
                 )
@@ -99,15 +96,15 @@ contract RewardEstimator is ExponentialNoError {
 
     function calculateRewardSupplyIndex(
         RewardComptrollerInterface controller,
-        address mToken
+        address chToken
     ) internal view returns (uint256) {
         (uint256 supplyStateIndex, uint256 supplyStateBlock) = controller
-            .rewardSupplyState(mToken);
-        uint256 supplySpeed = controller.rewardSpeeds(mToken);
+            .rewardSupplyState(chToken);
+        uint256 supplySpeed = controller.rewardSpeeds(chToken);
         uint256 blockNumber = block.number;
         uint256 deltaBlocks = sub_(blockNumber, supplyStateBlock);
         if (deltaBlocks > 0 && supplySpeed > 0) {
-            uint256 supplyTokens = MToken(mToken).totalSupply();
+            uint256 supplyTokens = ChToken(chToken).totalSupply();
             uint256 rewardAccrued = mul_(deltaBlocks, supplySpeed);
             Double memory ratio = supplyTokens > 0
                 ? fraction(rewardAccrued, supplyTokens)
@@ -124,13 +121,13 @@ contract RewardEstimator is ExponentialNoError {
 
     function calculateSupplierReward(
         RewardComptrollerInterface controller,
-        address mToken,
+        address chToken,
         address supplier,
         uint256 supplyIndexMantissa
     ) internal view returns (uint256 supplierAccrued) {
         Double memory supplyIndex = Double({mantissa: supplyIndexMantissa});
         Double memory supplierIndex = Double({
-            mantissa: controller.rewardSupplierIndex(mToken, supplier)
+            mantissa: controller.rewardSupplierIndex(chToken, supplier)
         });
 
         if (supplierIndex.mantissa == 0 && supplyIndex.mantissa > 0) {
@@ -141,24 +138,24 @@ contract RewardEstimator is ExponentialNoError {
             return 0;
         }
         Double memory deltaIndex = sub_(supplyIndex, supplierIndex);
-        uint256 supplieMTokens = MToken(mToken).balanceOf(supplier);
-        return mul_(supplieMTokens, deltaIndex);
+        uint256 supplieChTokens = ChToken(chToken).balanceOf(supplier);
+        return mul_(supplieChTokens, deltaIndex);
     }
 
     function calculateRewardBorrowIndex(
         RewardComptrollerInterface controller,
-        address mToken,
+        address chToken,
         Exp memory marketBorrowIndex
     ) internal view returns (uint256) {
         (uint256 borrowStateIndex, uint256 borrowStateBlock) = controller
-            .rewardBorrowState(mToken);
-        uint256 borrowSpeed = controller.rewardSpeeds(mToken);
+            .rewardBorrowState(chToken);
+        uint256 borrowSpeed = controller.rewardSpeeds(chToken);
         uint256 blockNumber = block.number;
         uint256 deltaBlocks = sub_(blockNumber, uint256(borrowStateBlock));
 
         if (deltaBlocks > 0 && borrowSpeed > 0) {
             uint256 borrowAmount = div_(
-                MToken(mToken).totalBorrows(),
+                ChToken(chToken).totalBorrows(),
                 marketBorrowIndex
             );
             uint256 rewardAccrued = mul_(deltaBlocks, borrowSpeed);
@@ -177,13 +174,13 @@ contract RewardEstimator is ExponentialNoError {
 
     function calculateBorrowerReward(
         RewardComptrollerInterface controller,
-        address mToken,
+        address chToken,
         address borrower,
         uint256 borrowIndexMantissa
     ) internal view returns (uint256 borrowerAccrued) {
         Double memory borrowIndex = Double({mantissa: borrowIndexMantissa});
         Double memory borrowerIndex = Double({
-            mantissa: controller.rewardBorrowerIndex(mToken, borrower)
+            mantissa: controller.rewardBorrowerIndex(chToken, borrower)
         });
 
         if (borrowerIndex.mantissa > 0) {
@@ -192,7 +189,7 @@ contract RewardEstimator is ExponentialNoError {
             }
             Double memory deltaIndex = sub_(borrowIndex, borrowerIndex);
             uint256 borrowerAmount = div_(
-                MToken(mToken).borrowBalanceStored(borrower),
+                ChToken(chToken).borrowBalanceStored(borrower),
                 Exp(borrowIndexMantissa)
             );
             return mul_(borrowerAmount, deltaIndex);
